@@ -1,6 +1,14 @@
+#-*- coding: utf-8 -*-
+
+'''
+
+This module exposes functions for running several services in the background.
+They all reside in the ThreadPoolExecutor implementation.
+
+'''
 
 from concurrent import futures
-from typing import List, Union, Tuple
+from typing import List
 import logging
 
 
@@ -40,7 +48,7 @@ def wait_futures(worker: callable,
                  services: list,
                  *args,
                  **executor_kwargs) -> List[str]:
-    '''Manage parallel tasks with nice logging '''
+    ''' Manage parallel tasks with nice logging '''
 
     index, faileds, services_count = 0, [], len(services)
     with futures.ThreadPoolExecutor(**executor_kwargs) as executor:
