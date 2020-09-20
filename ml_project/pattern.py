@@ -111,7 +111,6 @@ class MostOccurenceColor(JSONPatternDump):
             if not path in occurrences.keys():
                 occurrences[path] = set()
             occurrences[path].add(hex_format)
-            memory_summary()
             
         return occurrences, wrapper
 
