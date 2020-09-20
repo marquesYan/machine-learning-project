@@ -1,0 +1,26 @@
+{
+    "datasets": [
+        {
+            "class": "krusty",
+            "path": "dataset/krusty_the_clown",
+            "executor_kwargs": {
+                "max_workers": 30
+            },
+            "pattern": {
+                "max_results": 50,
+                "output": "krusty.json"
+            }
+        },
+        {
+            "class": "otto",
+            "path": "dataset/otto_mann",
+            "executor_kwargs": {
+                "max_workers": 15
+            },
+            "pattern": {
+                "max_results": 50,
+                "output": "otto.json"
+            }
+        }
+    ]
+}
