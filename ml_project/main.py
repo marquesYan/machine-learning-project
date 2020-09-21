@@ -4,10 +4,11 @@
 
 '''
 
-import pattern
+import patterns
 from parallel import background_run, wait_futures
 from argparse import ArgumentParser, Namespace
 from typing import List, Tuple, Union
+from datetime import datetime
 import logging
 import json
 import sys
@@ -24,8 +25,9 @@ def parse_args() -> Namespace:
                         default=sys.stdout)
     parser.add_argument('-c', '--config', help='Configuration file', default='ml.json')
     parser.add_argument('-v', '--verbose', help='Be louder', action='store_true', default=False)
-    parser.add_argument('-w', '--max-workers', help='How many workers to run on each dataset thread', type=int)
-    parser.add_argument('-m', '--method', help='Specify which pattern method', required=True)
+    parser.add_argument('-l', '--list-methods', help='Lista all available pattern methods.',
+                        action='store_true', default=False)
+
     return parser.parse_args()
 
 
@@ -35,6 +37,7 @@ def parse_config(path: str):
     with open(path, 'rb') as reader:
         data = json.load(reader)
     
+    assert 'method' in data, 'Missing "method" in configuration'
     assert 'datasets' in data, 'Missing "datasets" in configuration'
     assert isinstance(data['datasets'], list), 'Invalid type for "datasets" in configuration'
     for index, dataset in enumerate(data['datasets']):
@@ -44,24 +47,22 @@ def parse_config(path: str):
     return data
 
 
-def with_pixels(callback: callable) -> None:
+def with_pixels(path: str, dataset: dict, callback: callable) -> None:
     ''' 
     Wrapper function to execute a callback with every image pixel for every call with an image
     '''
 
-    def wrapper(path: str) -> None:
-        image = cv2.imread(path)
+    image = cv2.imread(path)
 
-        # get sizes
-        height, width, _ = image.shape
+    # get sizes
+    height, width, _ = image.shape
 
-        for i in range(height):
-            for j in range(width):
-                callback(path, image[i][j])
+    for i in range(height):
+        for j in range(width):
+            callback(path, dataset, image[i][j])
 
-        # ensure service will count this as success
-        return True
-    return wrapper
+    # ensure service will count this as success
+    return True
 
 
 def scan_directory(path: str) -> List[str]:
@@ -75,16 +76,26 @@ def scan_directory(path: str) -> List[str]:
 
 
 def service_runner(worker: callable,
-                   directory: str,
-                   name: str,
+                   dataset: dict,
+                   dataset_class: str,
+                   method: patterns.base.BaseMethod,
+                   *args,
                    **executor_kwargs) -> Union[None, Tuple[int, List[str]]]:
     ''' Scan targeted files in directory and try to convert them in parallel '''
 
-    paths = scan_directory(directory)
+    paths = scan_directory(dataset['path'])
+    paths = paths[:60]
     if paths:
+        callback = method.get_callback(dataset)
         paths_count = len(paths)
-        logging.debug('%s files found: %d', name, paths_count)
-        failed_items = wait_futures(worker, paths, **executor_kwargs)
+        logging.debug('%s files found: %d', dataset_class, paths_count)
+        failed_items = wait_futures(worker, 
+                                    paths, 
+                                    dataset, 
+                                    callback, 
+                                    *args, 
+                                    **executor_kwargs)
+        wait_futures(method.save, [dataset])
         return (paths_count, failed_items)
     return None
 
@@ -104,27 +115,38 @@ def setup_logging(verbose: bool) -> None:
     logging.getLogger(__file__)
 
 
-def retrieve_pattern_method(method: str) -> pattern.BaseMethod:
+def get_pattern_method_objs() -> dict:
+    objs = {}
+    for klass in patterns.load_method_classes():
+        obj = klass()
+        objs[obj.name()] = obj
+    return objs 
+
+
+def retrieve_pattern_method(method: str) -> patterns.base.BaseMethod:
     ''' Get a pattern method from available methods '''
 
-    available_methods = {obj.name(): obj for obj in pattern.load_methods()}
+    available_methods = get_pattern_method_objs()
 
     if not method in available_methods.keys():
         raise TypeError(f'Unknow pattern method "{method}".')
 
-    return available_methods[method]
+    return available_methods[method].__class__
 
 
-def create_services(config: dict, method: pattern.BaseMethod) -> list:
+def create_services(config: dict, method: patterns.base.BaseMethod) -> list:
     ''' Create valid service configuration for running in the background '''
 
     services = []
     for dataset in config['datasets']:
-        callback = method.get_callback(dataset)
-        worker = with_pixels(callback)
-        services.append(((worker, dataset['path'], dataset['class']), 
+        services.append(((with_pixels, dataset, dataset['class'], method), 
                         dataset.get('executor_kwargs', {})))
     return services
+
+
+def display_available_methods() -> None:
+    for objs in get_pattern_method_objs().values():
+        print(f'{objs.name()}\t\t - {objs.help()}')
 
 
 def main():
@@ -134,17 +156,25 @@ def main():
 
     setup_logging(args.verbose)
 
+    if args.list_methods:
+        display_available_methods()
+        return 0
+
     config = parse_config(args.config)
 
-    current_method = retrieve_pattern_method(args.method)
+    # retrieve and instantiate method class
+    current_method_class = retrieve_pattern_method(config['method'])
+    current_method = current_method_class(config=config.get('method_options', {}))
 
     services = create_services(config, current_method)
 
-    background_run(service_runner, services, max_workers=args.max_workers)
-    
-    list(map(current_method.save, config['datasets']))
+    start = datetime.now()
+    background_run(service_runner, services, max_workers=config.get('max_workers'))
+    logging.info('time spent: %s', datetime.now() - start)
+
+    return 0
 
 
 
 if __name__ == '__main__':
-    main()
+    sys.exit(main())

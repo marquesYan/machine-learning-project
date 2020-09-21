@@ -9,6 +9,7 @@ They all reside in the ThreadPoolExecutor implementation.
 
 from concurrent import futures
 from typing import List
+import traceback
 import logging
 
 
@@ -51,12 +52,13 @@ def wait_futures(worker: callable,
     ''' Manage parallel tasks with nice logging '''
 
     index, faileds, services_count = 0, [], len(services)
-    with futures.ThreadPoolExecutor(**executor_kwargs) as executor:
+    with futures.ProcessPoolExecutor(**executor_kwargs) as executor:
         future_to_service = {executor.submit(worker, service, *args): service
                              for service in services}
         for service, success, error in handle_futures(future_to_service):
             if error:
                 logging.error('%s exited with: %s', service, error)
+                traceback.print_tb(error.__traceback__)
             else:
                 logging.debug('%s resulted in: %s', service, success)
 

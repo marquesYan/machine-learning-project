@@ -1,10 +1,15 @@
 {
+    "method": "MostOccurentColor",
+    "method_options": {
+        "flush_idle": 15,
+        "flush_interval": 5
+    },
     "datasets": [
         {
             "class": "krusty",
             "path": "dataset/krusty_the_clown",
             "executor_kwargs": {
-                "max_workers": 30
+                "max_workers": 100
             },
             "pattern": {
                 "max_results": 50,
@@ -15,7 +20,7 @@
             "class": "otto",
             "path": "dataset/otto_mann",
             "executor_kwargs": {
-                "max_workers": 15
+                "max_workers": 1
             },
             "pattern": {
                 "max_results": 50,
