@@ -1,37 +1,28 @@
-from .base import JSONPatternDump
-from .utils import rgb2hex
+from .base import BaseMethod
+from .utils import image2hex
 
 from collections import Counter
 from typing import Tuple, Any
+from multiprocessing import Manager
 
 
-class MostCommonColor(JSONPatternDump):
-    def __init__(self, config: dict = {}):
-        self.counters = {}
+class MostCommonColor(BaseMethod):
 
     def help(self):
         return 'Collects the top colors in all images.'
 
-    def get_callback(self, dataset: dict) -> callable:
-        self.counters[dataset['class']] = Counter()
+    def run(self, image: str, dataset: dict, path: str) -> None:
+        '''Callback to count colors.'''
 
-        return self._color_counter
+        counter = Counter()
 
-    def _color_counter(self, 
-                       _: str, 
-                       dataset: dict, 
-                       rgb: list) -> Tuple[Counter, callable]:
-        '''Helper wrapper to count colors.'''
+        for pixel_hex in image2hex(image):
+            # increment this hex color
+            counter.update({pixel_hex: 1})
+        return counter
 
-        # convert rgb into hex
-        hex_format = rgb2hex(*rgb)
-
-        color_counter = self.counters[dataset['class']]
-
-        # increment this hex color
-        color_counter.update({hex_format: 1})
-
-    def dump_content(self, dataset: dict) -> Any:
-        name = dataset['class']
-        patterns = self.counters[name].most_common()
-        return patterns
+    def dump(self, result_data: list, dataset: dict) -> Any:
+        final_counter = Counter()
+        for counter in result_data:
+            final_counter.update(counter)
+        return final_counter.most_common()

@@ -4,17 +4,19 @@
 
 '''
 
-import patterns
 from parallel import background_run, wait_futures
+import patterns
+import cv2
+
 from argparse import ArgumentParser, Namespace
-from typing import List, Tuple, Union
+from typing import List, Tuple, Union, Callable, Any
 from datetime import datetime
+from multiprocessing import Manager
+from collections import Counter
 import logging
 import json
 import sys
 import os
-
-import cv2
 
 
 def parse_args() -> Namespace:
@@ -47,22 +49,14 @@ def parse_config(path: str):
     return data
 
 
-def with_pixels(path: str, dataset: dict, callback: callable) -> None:
+def with_image(path: str, dataset: dict, callback: Callable[[object, dict, str], Any]) -> None:
     ''' 
-    Wrapper function to execute a callback with every image pixel for every call with an image
+    Wrapper function to execute a service callback with a loaded opencv image. 
     '''
 
     image = cv2.imread(path)
 
-    # get sizes
-    height, width, _ = image.shape
-
-    for i in range(height):
-        for j in range(width):
-            callback(path, dataset, image[i][j])
-
-    # ensure service will count this as success
-    return True
+    return callback(image, dataset, path)
 
 
 def scan_directory(path: str) -> List[str]:
@@ -79,26 +73,26 @@ def service_runner(worker: callable,
                    dataset: dict,
                    dataset_class: str,
                    method: patterns.base.BaseMethod,
+                   paths: list,
+                   current_loop: int,
                    *args,
                    **executor_kwargs) -> Union[None, Tuple[int, List[str]]]:
     ''' Scan targeted files in directory and try to convert them in parallel '''
 
-    paths = scan_directory(dataset['path'])
-    paths = paths[:60]
-    if paths:
-        callback = method.get_callback(dataset)
-        paths_count = len(paths)
-        logging.debug('%s files found: %d', dataset_class, paths_count)
-        failed_items = wait_futures(worker, 
-                                    paths, 
-                                    dataset, 
-                                    callback, 
-                                    *args, 
-                                    **executor_kwargs)
-        wait_futures(method.save, [dataset])
-        return (paths_count, failed_items)
-    return None
+    paths_count = len(paths)
+    logging.debug('%s files found: %d', dataset_class, paths_count)
+    failed_items, results = wait_futures(worker, 
+                                        paths, 
+                                        dataset, 
+                                        method.run, 
+                                        mask_result=True,
+                                        *args, 
+                                        **executor_kwargs)
 
+    # save pattern result
+    save_pattern_method(dataset, method, results, current_loop)
+
+    return (paths_count, failed_items)
 
 
 def setup_logging(verbose: bool) -> None:
@@ -134,19 +128,109 @@ def retrieve_pattern_method(method: str) -> patterns.base.BaseMethod:
     return available_methods[method].__class__
 
 
-def create_services(config: dict, method: patterns.base.BaseMethod) -> list:
+def create_service(dataset: dict, *args) -> list:
     ''' Create valid service configuration for running in the background '''
 
-    services = []
-    for dataset in config['datasets']:
-        services.append(((with_pixels, dataset, dataset['class'], method), 
-                        dataset.get('executor_kwargs', {})))
-    return services
+    args = (with_image, dataset, dataset['class'], *args)
+    kwargs = dataset.get('executor_kwargs', {})
+    return ((args), kwargs)
 
 
 def display_available_methods() -> None:
     for objs in get_pattern_method_objs().values():
         print(f'{objs.name()}\t\t - {objs.help()}')
+
+
+def get_pattern_output_name(dataset: dict, preffix: Any):
+    name, ext = os.path.splitext(os.path.basename(dataset['pattern']['output']))
+    target_name = os.path.join(os.path.dirname(dataset['pattern']['output']), name)
+    return f'{target_name}-{preffix}{ext}'
+
+
+def save_pattern_method(dataset: dict, 
+                        method: patterns.base.BaseMethod, 
+                        results: list,
+                        index: int) -> None:
+    stats = method.dump(results, dataset)
+
+    max_results = dataset['pattern'].get('max_results')
+    if max_results:
+        stats = stats[:max_results]
+
+    content = {color: count for color, count in stats}
+
+    target_name = get_pattern_output_name(dataset, index)
+
+    with open(target_name, 'w') as writer:
+        json.dump(content, writer, indent=4)
+    logging.info(f'patterns of {dataset["class"]} was saved sucessfully!')
+
+
+def run(config: dict) -> None:
+    dataset_paths, splitted_datasets = {}, {}
+
+    for dataset in config['datasets']:
+        paths = scan_directory(dataset['path'])
+        dataset_paths[dataset['class']] = paths
+
+    method_factory = retrieve_pattern_method(config['method'])
+    method = method_factory(config=config.get('method_options', {}))
+    
+    global_index = 1
+
+    while True:
+        services = []
+        for dataset in config['datasets']:
+            all_paths = dataset_paths[dataset['class']]
+            step = dataset.get('step') or len(all_paths)
+
+            paths = all_paths[:step]
+
+            # ensure paths are upated
+            dataset_paths[dataset['class']] = all_paths[step:]
+
+            # is dataset being split
+            if len(dataset_paths[dataset['class']]) > 0:
+                if dataset['class'] not in splitted_datasets:
+                    splitted_datasets[dataset['class']] = [dataset, 0]
+
+                # count how many splits
+                splitted_datasets[dataset['class']][1] += 1
+
+            if paths:
+                logging.info('remaining paths for [%s]: %d', dataset['class'], len(paths))
+                service = create_service(dataset, 
+                                         method,
+                                         paths, 
+                                         global_index)
+                services.append(service)
+
+        # are we done?
+        if not services:
+            break
+
+        background_run(service_runner, 
+                       services, 
+                       max_workers=config.get('max_workers'))
+
+        global_index += 1
+
+    finish_splitted_datasets(method, splitted_datasets)
+
+
+def finish_splitted_datasets(method: patterns.base.BaseMethod, 
+                             splitted_datasets: dict) -> None:
+    for dataset, count in splitted_datasets.values():
+        logging.debug('recovering split stats for dataset: %s', dataset['class'])
+        all_stats = []
+        for index in range(1, count):
+            target_name = get_pattern_output_name(dataset, index)
+            logging.debug('start reading stat: %s', target_name)
+            with open(target_name, 'r') as reader:
+                stats = json.load(reader)
+            all_stats.append(stats)
+        all_stats = [list(stats) for stats in all_stats]
+        save_pattern_method(dataset, method, all_stats, 'summarized')
 
 
 def main():
@@ -162,14 +246,8 @@ def main():
 
     config = parse_config(args.config)
 
-    # retrieve and instantiate method class
-    current_method_class = retrieve_pattern_method(config['method'])
-    current_method = current_method_class(config=config.get('method_options', {}))
-
-    services = create_services(config, current_method)
-
     start = datetime.now()
-    background_run(service_runner, services, max_workers=config.get('max_workers'))
+    run(config)
     logging.info('time spent: %s', datetime.now() - start)
 
     return 0

@@ -1,65 +1,50 @@
-from .base import JSONPatternDump
-from .utils import (
-    FlushOnDemand, 
-    TemporaryObject, 
-    rgb2hex
-)
+from .base import BaseMethod
+from .utils import image2hex
+from parallel import wait_futures, display_status
 
 from collections import Counter
-from tempfile import TemporaryDirectory
-from typing import Any
+from typing import List, Tuple, Set
+from concurrent import futures
+from multiprocessing import Manager
 import logging
-import os
-import json
 
 
-class MostOccurentColor(JSONPatternDump):
-    def __init__(self, config: dict = {}):
-        self.tmpdirs = {}
-        self.flush_system = FlushOnDemand(config.get('flush_idle', 15), 
-                                          config.get('flush_interval', 30))
+class MostOccurentColor(BaseMethod):
 
     def help(self) -> str:
         return 'Collects the colors which has the most frequency.'
+        
+    def run(self, image: object, dataset: dict, path: str) -> Set:
+        hex_map = set()
+        for pixel in image2hex(image):
+            hex_map.add(pixel)
+        return hex_map
+    
+    def _count_pixel_occurrences(self, input_data: tuple, results: list) -> Counter:
+        current_index, pixels = input_data
+        counter = Counter()
 
-    def get_callback(self, dataset: dict) -> tuple:
-        tmpdir = TemporaryDirectory()
-        self.tmpdirs[dataset['class']] = tmpdir
-        logging.debug('created temporary directory for [%s] at %s', dataset['class'], tmpdir.name)
+        for pixel in pixels:
+            for other_index, other_pixels in enumerate(results):
+                if current_index != other_index and pixel in other_pixels:
+                    counter.update({pixel: 1})
 
-        return self._occurrence_cb
+        return counter
 
-    def _occurrence_cb(self, path: str, dataset: dict, rgb: list):
-        if not self.flush_system.has(path):
-            name, _ = os.path.splitext(os.path.basename(path))
-            tmpdir = self.tmpdirs[dataset['class']]
-            target_path = os.path.join(tmpdir.name, f'{name}.json') 
+    def dump(self, hex_map, dataset: dict) -> List[Tuple[str, int]]:
+        final_result = Counter()
+        pixel_info = [(index, pixels) for index, pixels in enumerate(hex_map)]
+        logging.info('starting jobs to count pixel occurrences')
+        faileds, counters = wait_futures(self._count_pixel_occurrences, 
+                                         pixel_info, 
+                                         hex_map,
+                                         show_status=False,
+                                         mask_result=True,
+                                         **dataset['pattern'].get('executor_kwargs', {}))
+        logging.info('pixel occurrence count just finished')
+        for counter in counters:
+            for key, count in counter.items():
+                if key not in final_result.keys():
+                    final_result.update({key: count})
 
-            tmpobj = TemporaryObject(target_path=target_path,
-                                     key=path,
-                                     objects=set())
-
-            self.flush_system.update(tmpobj)
-
-        hex_format = rgb2hex(*rgb)
-        tmpobj = self.flush_system.get(path)
-        tmpobj.objects.add(hex_format)
-
-    def dump_content(self, dataset: dict) -> Any:
-        self.flush_system.flush_all()
-
-        result = Counter()
-
-        tmpdir = self.tmpdirs[dataset['class']]
-
-        with os.scandir(tmpdir.name) as scan:
-            for entry in scan:
-                logging.debug('reading entry at %s', entry.path)
-                with open(entry.path, 'rb') as reader:
-                    hexadecimals = json.load(reader)
-                
-                for hex_value in hexadecimals:
-                    result.update({hex_value: 1})
-
-        most_occurrences = result.most_common()
-        return most_occurrences
+        return final_result.most_common()

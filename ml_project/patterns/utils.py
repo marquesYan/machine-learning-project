@@ -1,6 +1,6 @@
 from dataclasses import dataclass, field
 from typing import Union, Any, List
-import threading
+import multiprocessing
 import datetime
 import logging
 import json
@@ -9,6 +9,15 @@ import json
 def rgb2hex(red, green, blue):
     # see https://www.codespeedy.com/convert-rgb-to-hex-color-code-in-python/
     return '0x%02x%02x%02x' % (red, green, blue)
+
+
+def image2hex(image) -> List[str]:
+    # get sizes
+    height, width, _ = image.shape
+    for i in range(height):
+        for j in range(width):
+            rgb = image[i][j]
+            yield rgb2hex(*rgb)
 
 
 @dataclass
@@ -20,7 +29,7 @@ class TemporaryObject:
 
 
 class FlushOnDemand:
-    _lock = threading.RLock()
+    _lock = multiprocessing.RLock()
 
     def __init__(self, max_idle_time: int, max_interval_time: int):
         self.time_limit = datetime.timedelta(seconds=max_idle_time)

@@ -20,13 +20,13 @@ def background_run(runner: callable, services: list, max_workers: int = None) ->
         logging.info('any available service to run in background, aborting...')
         return
 
-    # by default, allocate 2 thread for each service
+    # by default, allocate 1 process for each service
     if max_workers is None:
         max_workers = len(services)
 
     logging.debug('starting background run for services: %s', services)
 
-    with futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
+    with futures.ProcessPoolExecutor(max_workers=max_workers) as executor:
         future_to_service = {executor.submit(runner, *args, **kwargs): args[2]
                              for args, kwargs in services}
         display_service_futures(future_to_service)
@@ -48,29 +48,36 @@ def handle_futures(future_to_service: dict) -> None:
 def wait_futures(worker: callable,
                  services: list,
                  *args,
+                 show_status: bool = True,
+                 mask_result: bool = False,
+                 impl: futures.Executor = futures.ProcessPoolExecutor,
                  **executor_kwargs) -> List[str]:
     ''' Manage parallel tasks with nice logging '''
 
-    index, faileds, services_count = 0, [], len(services)
-    with futures.ProcessPoolExecutor(**executor_kwargs) as executor:
+    index, faileds, results, services_count = 0, [], [], len(services)
+    with impl(**executor_kwargs) as executor:
         future_to_service = {executor.submit(worker, service, *args): service
                              for service in services}
-        for service, success, error in handle_futures(future_to_service):
+        for service, result, error in handle_futures(future_to_service):
             if error:
                 logging.error('%s exited with: %s', service, error)
                 traceback.print_tb(error.__traceback__)
-            else:
-                logging.debug('%s resulted in: %s', service, success)
+            elif not mask_result:
+                logging.debug('%s resulted in: %s', service, result)
 
+            results.append(result)
+            success = result is not None
             if not success:
                 faileds.append(service)
 
             index += 1
-            logging.info('fineshed: %s success: %s status: %s',
-                         service,
-                         success,
-                         f'{index}/{services_count}')
-    return faileds
+
+            if show_status:
+                logging.info('fineshed: %s success: %s status: %s',
+                            service,
+                            success,
+                            f'{index}/{services_count}')
+    return faileds, results
 
 
 def display_status(name: str, total: int, items_failed: list) -> None:
