@@ -9,6 +9,9 @@ class BaseMethod(abc.ABC):
     def __init__(self, config: dict = {}):
         self.config = config
 
+    def init(self, datasets: list) -> None:
+        pass
+
     def name(self) -> str:
         return self.__class__.__name__
 
@@ -19,6 +22,18 @@ class BaseMethod(abc.ABC):
     @abc.abstractmethod
     def dump(self, result_data: list, Any, dataset: dict) -> List[Tuple[str, int]]:
         pass
+
+    def save(self, path: str, result_data: list, Any, dataset: dict) -> None:
+        stats = method.dump(results, dataset)
+
+        max_results = dataset['pattern'].get('max_results')
+        if max_results:
+            stats = stats[:max_results]
+
+        content = {color: count for color, count in stats}
+
+        with open(path, 'w') as writer:
+            json.dump(content, writer, indent=4)
 
     @abc.abstractmethod
     def help(self) -> str:

@@ -151,18 +151,8 @@ def save_pattern_method(dataset: dict,
                         method: patterns.base.BaseMethod, 
                         results: list,
                         index: int) -> None:
-    stats = method.dump(results, dataset)
-
-    max_results = dataset['pattern'].get('max_results')
-    if max_results:
-        stats = stats[:max_results]
-
-    content = {color: count for color, count in stats}
-
     target_name = get_pattern_output_name(dataset, index)
-
-    with open(target_name, 'w') as writer:
-        json.dump(content, writer, indent=4)
+    method.save(target_name, results, dataset)
     logging.info(f'patterns of {dataset["class"]} was saved sucessfully!')
 
 
@@ -171,10 +161,13 @@ def run(config: dict) -> None:
 
     for dataset in config['datasets']:
         paths = scan_directory(dataset['path'])
+        if dataset.get('only'):
+            paths = paths[:dataset.get('only')]
         dataset_paths[dataset['class']] = paths
 
     method_factory = retrieve_pattern_method(config['method'])
     method = method_factory(config=config.get('method_options', {}))
+    method.init(config['datasets'])
     
     global_index = 1
 
@@ -198,7 +191,9 @@ def run(config: dict) -> None:
                 splitted_datasets[dataset['class']][1] += 1
 
             if paths:
-                logging.info('remaining paths for [%s]: %d', dataset['class'], len(paths))
+                logging.info('remaining paths for [%s]: %d', 
+                             dataset['class'], 
+                             len(dataset_paths[dataset['class']]))
                 service = create_service(dataset, 
                                          method,
                                          paths, 
@@ -215,7 +210,8 @@ def run(config: dict) -> None:
 
         global_index += 1
 
-    finish_splitted_datasets(method, splitted_datasets)
+    if not config.get('ignore_split', False):
+        finish_splitted_datasets(method, splitted_datasets)
 
 
 def finish_splitted_datasets(method: patterns.base.BaseMethod, 
@@ -229,6 +225,7 @@ def finish_splitted_datasets(method: patterns.base.BaseMethod,
             with open(target_name, 'r') as reader:
                 stats = json.load(reader)
             all_stats.append(stats)
+            os.unlink(target_name)
         all_stats = [list(stats) for stats in all_stats]
         save_pattern_method(dataset, method, all_stats, 'summarized')
 

@@ -26,7 +26,7 @@ def background_run(runner: callable, services: list, max_workers: int = None) ->
 
     logging.debug('starting background run for services: %s', services)
 
-    with futures.ProcessPoolExecutor(max_workers=max_workers) as executor:
+    with futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
         future_to_service = {executor.submit(runner, *args, **kwargs): args[2]
                              for args, kwargs in services}
         display_service_futures(future_to_service)
@@ -54,7 +54,9 @@ def wait_futures(worker: callable,
                  **executor_kwargs) -> List[str]:
     ''' Manage parallel tasks with nice logging '''
 
-    index, faileds, results, services_count = 0, [], [], len(services)
+    index, faileds, results = 0, [], []
+    if show_status:
+        services_count = len(services)
     with impl(**executor_kwargs) as executor:
         future_to_service = {executor.submit(worker, service, *args): service
                              for service in services}
