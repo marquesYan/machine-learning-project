@@ -13,12 +13,17 @@ import traceback
 import logging
 
 
-def background_run(runner: callable, services: list, max_workers: int = None) -> None:
+def background_run(runner: callable, 
+                   services: list,
+                   impl: futures.Executor = None,
+                   max_workers: int = None) -> None:
     ''' Execute services in parallel '''
 
     if not services:
         logging.info('any available service to run in background, aborting...')
         return
+
+    impl = impl or futures.ProcessPoolExecutor
 
     # by default, allocate 1 process for each service
     if max_workers is None:
@@ -26,7 +31,7 @@ def background_run(runner: callable, services: list, max_workers: int = None) ->
 
     logging.debug('starting background run for services: %s', services)
 
-    with futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
+    with impl(max_workers=max_workers) as executor:
         future_to_service = {executor.submit(runner, *args, **kwargs): args[2]
                              for args, kwargs in services}
         display_service_futures(future_to_service)
@@ -50,9 +55,11 @@ def wait_futures(worker: callable,
                  *args,
                  show_status: bool = True,
                  mask_result: bool = False,
-                 impl: futures.Executor = futures.ProcessPoolExecutor,
+                 impl: futures.Executor = None,
                  **executor_kwargs) -> List[str]:
     ''' Manage parallel tasks with nice logging '''
+
+    impl = impl or futures.ProcessPoolExecutor
 
     index, faileds, results = 0, [], []
     if show_status:

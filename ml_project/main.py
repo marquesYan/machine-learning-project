@@ -61,6 +61,7 @@ def service_runner(worker: callable,
                    paths: list,
                    current_loop: int,
                    *args,
+                   impl=None,
                    **executor_kwargs) -> Union[None, Tuple[int, List[str]]]:
     ''' Scan targeted files in directory and try to convert them in parallel '''
 
@@ -71,8 +72,9 @@ def service_runner(worker: callable,
                                         dataset, 
                                         method.run, 
                                         mask_result=True,
-                                        *args, 
-                                        **executor_kwargs)
+                                        impl=impl,
+                                        *args,
+                                        **executor_kwargs,)
 
     # save pattern result
     save_pattern_method(dataset, method, results, current_loop)
@@ -99,11 +101,11 @@ def retrieve_pattern_method(method: str) -> patterns.base.BaseMethod:
     return available_methods[method].__class__
 
 
-def create_service(dataset: dict, *args) -> list:
+def create_service(dataset: dict, *args, **kwargs) -> list:
     ''' Create valid service configuration for running in the background '''
 
     args = (with_image, dataset, dataset['class'], *args)
-    kwargs = dataset.get('executor_kwargs', {})
+    kwargs.update(**dataset.get('executor_kwargs', {}))
     return ((args), kwargs)
 
 
@@ -139,7 +141,7 @@ def run(config: dict) -> None:
     method_factory = retrieve_pattern_method(config['method'])
     method = method_factory(config=config.get('method_options', {}))
     method.init(config['datasets'])
-    
+
     global_index = 1
 
     while True:
@@ -168,7 +170,8 @@ def run(config: dict) -> None:
                 service = create_service(dataset, 
                                          method,
                                          paths, 
-                                         global_index)
+                                         global_index,
+                                         impl=method.options.get('service_impl'))
                 services.append(service)
 
         # are we done?
@@ -176,8 +179,9 @@ def run(config: dict) -> None:
             break
 
         background_run(service_runner, 
-                       services, 
-                       max_workers=config.get('max_workers'))
+                       services,
+                       max_workers=config.get('max_workers'),
+                       impl=method.options.get('background_impl'))
 
         global_index += 1
 
