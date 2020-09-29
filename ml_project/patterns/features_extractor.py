@@ -43,7 +43,13 @@ class ArffFormat(Formatter):
             yield f'@relation {relation_name}'
 
             for column in self.columns:
-                yield f'@attribute {column["name"]} {column["type"]}'
+                col_type = column['type']
+
+                # interpret column tpye as a class
+                if isinstance(col_type, list):
+                    col_type = '{{{}}}'.format(','.join(col_type))
+
+                yield f'@attribute {column["name"]} {col_type}'
             yield '@data'
 
         with open(self.path, 'w') as writer:
@@ -109,7 +115,7 @@ class FeaturesExtractor(BaseMethod):
             self.feature_layouts.extend(dataset['feature']['layout'])
             classes.append(dataset['class'])
 
-        columns = [dict(name='class', type='{{{}}}'.format(','.join(classes)))]
+        columns = [dict(name='class', type=classes)]
         for feature in self.feature_layouts:
             columns.append(dict(name=feature['name'], type='real'))
         
