@@ -117,6 +117,8 @@ def get_method_objs() -> dict:
 
 
 def parse_output_name(dataset: dict, preffix: Any):
+    if 'pattern' not in dataset:
+        return
     name, ext = os.path.splitext(os.path.basename(dataset['pattern']['output']))
     target_name = os.path.join(os.path.dirname(dataset['pattern']['output']), name)
     return f'{target_name}-{preffix}{ext}'
