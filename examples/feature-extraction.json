@@ -1,0 +1,72 @@
+{
+    "method": "FeaturesExtractor",
+    "method_options": {
+        "feature": {
+            "output": "my-awesome-extraction",
+            "relation_name": "testing-feature-extraction",
+            "format": "all"
+        }
+    },
+    "datasets": [
+        {
+            "class": "some-class",
+            "path": "path/to/dataset",
+            "step": 2,
+            "only": 300,
+            "feature": {
+                "layout": [
+                    {
+                        "name": "some-class_feature_#1",
+                        "regions": {
+                            "top": 25,
+                            "left": 60
+                        },
+                        "ranges": {
+                            "red": {
+                                "to": 33,
+                                "from": 8,
+                                "margin": 30
+                            },
+                            "green": {
+                                "from": 122,
+                                "to": 166
+                            },
+                            "blue": {
+                                "from": 97,
+                                "to": 149
+                            }
+                        }
+                    }
+                ]
+            }
+        },
+        {
+            "class": "another-class",
+            "path": "path/to/another/dataset",
+            "feature": {
+                "layout": [
+                    {
+                        "name": "another-class_feature_#1",
+                        "ranges": {
+                            "red": {
+                                "to": 16,
+                                "from": 1,
+                                "margin": 30
+                            },
+                            "green": {
+                                "from": 1,
+                                "to": 15,
+                                "margin": 30
+                            },
+                            "blue": {
+                                "from": 1,
+                                "to": 23,
+                                "margin": 30
+                            }
+                        }
+                    }
+                ]
+            }
+        }
+    ]
+}
