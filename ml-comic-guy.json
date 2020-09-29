@@ -1,0 +1,174 @@
+{
+    "method": "FeaturesExtractor",
+    "method_options": {
+        "feature": {
+            "output": "extraction-comic-guy",
+            "relation_name": "simpsons-feature-extraction",
+            "format": "all"
+        }
+    },
+    "datasets": [
+        {
+            "class": "krusty",
+            "path": "dataset/krusty_the_clown",
+            "step": 2,
+            "only": 500,
+            "pattern": {
+                "max_results": 100,
+                "output": "stats/krusty.json"
+            },
+            "feature": {
+                "layout": [
+                    {
+                        "name": "cabelo_do_krusty",
+                        "regions": {
+                            "top": 25
+                        },
+                        "ranges": {
+                            "red": {
+                                "to": 33,
+                                "from": 8,
+                                "margin": 30
+                            },
+                            "green": {
+                                "from": 122,
+                                "to": 166,
+                                "margin": 30
+                            },
+                            "blue": {
+                                "from": 97,
+                                "to": 149,
+                                "margin": 50
+                            }
+                        }
+                    },
+                    {
+                        "name": "gravata_do_krusty",
+                        "regions": {
+                            "top": 55
+                        },
+                        "ranges": {
+                            "red": {
+                                "from": 5,
+                                "to": 34,
+                                "margin": 40
+                            },
+                            "green": {
+                                "from": 125,
+                                "to": 134,
+                                "margin": 30
+                            },
+                            "blue": {
+                                "from": 187,
+                                "to": 215,
+                                "margin": 55 
+                            }
+                        }
+                    },
+                    {
+                        "name": "nariz_do_krusty",
+                        "regions": {
+                            "top": 40
+                        },
+                        "ranges": {
+                            "red": {
+                                "from": 186,
+                                "to": 214,
+                                "margin": 70
+                            },
+                            "green": {
+                                "from": 4,
+                                "to": 35,
+                                "margin": 60
+                            },
+                            "blue": {
+                                "from": 14,
+                                "to": 22,
+                                "margin": 50 
+                            }
+                        }
+                    }
+                ]
+            }
+        },
+        {
+            "class": "comic_book_guy",
+            "path": "dataset/comic_book_guy",
+            "step": 2,
+            "pattern": {
+                "max_results": 50,
+                "output": "stats/otto.json"
+            },
+            "feature": {
+                "layout": [
+                    {
+                        "name": "camisa_comic_guy",
+                        "ranges": {
+                            "red": {
+                                "to": 45,
+                                "from": 79,
+                                "margin": 30
+                            },
+                            "green": {
+                                "from": 91,
+                                "to": 138,
+                                "margin": 30
+                            },
+                            "blue": {
+                                "from": 138,
+                                "to": 235,
+                                "margin": 30
+                            }
+                        }
+                    },
+                    {
+                        "name": "cabelo_comic_guy",
+                        "regions": {
+                            "top": 25
+                        },
+                        "ranges": {
+                            "red": {
+                                "from": 57,
+                                "to": 171,
+                                "margin": 50
+                            },
+                            "green": {
+                                "from": 20,
+                                "to": 110,
+                                "margin": 45
+                            },
+                            "blue": {
+                                "from": 0,
+                                "to": 46,
+                                "margin": 60
+                            }
+                        }
+                    },
+                    {
+                        "name": "bermuda_comic_guy",
+                        "regions": {
+                            "bottom": 40
+                        },
+                        "ranges": {
+                            "red": {
+                                "from": 172,
+                                "to": 206,
+                                "margin": 70
+                            },
+                            "green": {
+                                "from": 6,
+                                "to": 41,
+                                "margin": 30
+                            },
+                            "blue": {
+                                "from": 68,
+                                "to": 86,
+                                "margin": 50
+                            }
+                        }
+                    }
+                ]
+            }
+        }
+    ]
+}
