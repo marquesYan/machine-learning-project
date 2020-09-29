@@ -137,8 +137,8 @@ class FeaturesExtractor(BaseMethod):
     def options(self) -> dict:
         return {
             'ignore_split': True,
-            'background_impl': ThreadPoolExecutor,
-            # 'service_impl': ThreadPoolExecutor,
+            # 'background_impl': ThreadPoolExecutor,
+            'service_impl': ThreadPoolExecutor,
         }
 
     def run(self, image: str, dataset: dict, path: str) -> None:
