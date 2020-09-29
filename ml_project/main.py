@@ -181,7 +181,7 @@ def run(config: dict) -> None:
 
         global_index += 1
 
-    if not config.get('ignore_split', False):
+    if not method.options.get('ignore_split', False):
         finish_splitted_datasets(method, splitted_datasets)
 
 

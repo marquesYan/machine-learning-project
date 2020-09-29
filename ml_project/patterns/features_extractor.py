@@ -127,6 +127,12 @@ class FeaturesExtractor(BaseMethod):
     def description(self) -> str:            
         return 'Extracts pre-defined image features.'
 
+    @property
+    def options(self) -> dict:
+        return {
+            'ignore_split': True
+        }
+
     def run(self, image: str, dataset: dict, path: str) -> None:
         '''Callback to extract feature from image.'''
 
