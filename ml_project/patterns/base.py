@@ -29,11 +29,11 @@ class BaseMethod(abc.ABC):
         pass
 
     @abc.abstractmethod
-    def dump(self, result_data: list, Any, dataset: dict) -> List[Tuple[str, int]]:
+    def dump(self, result_data: list, dataset: dict) -> List[Tuple[str, int]]:
         pass
 
-    def save(self, path: str, result_data: list, Any, dataset: dict) -> None:
-        stats = method.dump(results, dataset)
+    def save(self, path: str, result_data: list, dataset: dict) -> None:
+        stats = self.dump(result_data, dataset)
 
         max_results = dataset['pattern'].get('max_results')
         if max_results:

@@ -4,16 +4,20 @@
 
 '''
 
-from utils import parse_config, setup_logging
+from utils import (
+    parse_config, 
+    setup_logging,
+    parse_output_name, 
+    retrieve_pattern_method,
+    show_available_methods,
+)
 from parallel import background_run, wait_futures
-import patterns
+from patterns.base import BaseMethod
 import cv2
 
 from argparse import ArgumentParser, Namespace
 from typing import List, Tuple, Union, Callable, Any
 from datetime import datetime
-from multiprocessing import Manager
-from collections import Counter
 import logging
 import json
 import sys
@@ -57,7 +61,7 @@ def scan_directory(path: str) -> List[str]:
 def service_runner(worker: callable,
                    dataset: dict,
                    dataset_class: str,
-                   method: patterns.base.BaseMethod,
+                   method: BaseMethod,
                    paths: list,
                    current_loop: int,
                    *args,
@@ -82,25 +86,6 @@ def service_runner(worker: callable,
     return (paths_count, failed_items)
 
 
-def get_pattern_method_objs() -> dict:
-    objs = {}
-    for klass in patterns.load_method_classes():
-        obj = klass()
-        objs[obj.name] = obj
-    return objs 
-
-
-def retrieve_pattern_method(method: str) -> patterns.base.BaseMethod:
-    ''' Get a pattern method from available methods '''
-
-    available_methods = get_pattern_method_objs()
-
-    if not method in available_methods.keys():
-        raise TypeError(f'Unknow pattern method "{method}".')
-
-    return available_methods[method].__class__
-
-
 def create_service(dataset: dict, *args, **kwargs) -> list:
     ''' Create valid service configuration for running in the background '''
 
@@ -109,22 +94,11 @@ def create_service(dataset: dict, *args, **kwargs) -> list:
     return ((args), kwargs)
 
 
-def display_available_methods() -> None:
-    for objs in get_pattern_method_objs().values():
-        print(f'{objs.name}\t\t - {objs.description}')
-
-
-def get_pattern_output_name(dataset: dict, preffix: Any):
-    name, ext = os.path.splitext(os.path.basename(dataset['pattern']['output']))
-    target_name = os.path.join(os.path.dirname(dataset['pattern']['output']), name)
-    return f'{target_name}-{preffix}{ext}'
-
-
 def save_pattern_method(dataset: dict, 
-                        method: patterns.base.BaseMethod, 
+                        method: BaseMethod, 
                         results: list,
                         index: int) -> None:
-    target_name = get_pattern_output_name(dataset, index)
+    target_name = parse_output_name(dataset, index)
     method.save(target_name, results, dataset)
     logging.info(f'patterns of {dataset["class"]} was saved sucessfully!')
 
@@ -189,13 +163,13 @@ def run(config: dict) -> None:
         finish_splitted_datasets(method, splitted_datasets)
 
 
-def finish_splitted_datasets(method: patterns.base.BaseMethod, 
+def finish_splitted_datasets(method: BaseMethod, 
                              splitted_datasets: dict) -> None:
     for dataset, count in splitted_datasets.values():
         logging.debug('recovering split stats for dataset: %s', dataset['class'])
         all_stats = []
         for index in range(1, count):
-            target_name = get_pattern_output_name(dataset, index)
+            target_name = parse_output_name(dataset, index)
             logging.debug('start reading stat: %s', target_name)
             with open(target_name, 'r') as reader:
                 stats = json.load(reader)
@@ -213,7 +187,7 @@ def main():
     setup_logging(args.verbose)
 
     if args.list_methods:
-        display_available_methods()
+        show_available_methods()
         return 0
 
     config = parse_config(args.config)
@@ -223,7 +197,6 @@ def main():
     logging.info('time spent: %s', datetime.now() - start)
 
     return 0
-
 
 
 if __name__ == '__main__':

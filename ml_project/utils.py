@@ -1,3 +1,7 @@
+import patterns
+
+from typing import Any
+import os
 import json
 import logging
 
@@ -102,3 +106,33 @@ def display_table(section, keys, table, lines=None, end="\n"):
         display(line)
     fill_line()
     print(end=end)
+
+
+def get_method_objs() -> dict:
+    objs = {}
+    for klass in patterns.load_method_classes():
+        obj = klass()
+        objs[obj.name] = obj
+    return objs
+
+
+def parse_output_name(dataset: dict, preffix: Any):
+    name, ext = os.path.splitext(os.path.basename(dataset['pattern']['output']))
+    target_name = os.path.join(os.path.dirname(dataset['pattern']['output']), name)
+    return f'{target_name}-{preffix}{ext}'
+
+
+def retrieve_pattern_method(method: str) -> patterns.base.BaseMethod:
+    ''' Get a pattern method from available methods '''
+
+    available_methods = get_method_objs()
+
+    if not method in available_methods.keys():
+        raise TypeError(f'Unknow pattern method "{method}".')
+
+    return available_methods[method].__class__
+
+
+def show_available_methods() -> None:
+    for objs in get_method_objs().values():
+        print(f' * {objs.name}:\n{objs.description}\n')

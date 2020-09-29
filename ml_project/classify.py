@@ -10,14 +10,14 @@ from utils import (
     display_table
 )
 from patterns.features_extractor import FeaturesExtractor
+from sklearn.naive_bayes import GaussianNB
+from sklearn.metrics import confusion_matrix
+import cv2
+import pandas
+
 from datetime import datetime
 import argparse
 import logging
-
-from sklearn.naive_bayes import GaussianNB
-from sklearn.metrics import confusion_matrix
-import pandas
-import cv2
 
 
 def parse_args():

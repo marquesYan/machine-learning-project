@@ -1,7 +1,6 @@
 from .base import BaseMethod
 from .utils import map_image_pixels
 from parallel import wait_futures
-from main import get_pattern_output_name
 
 from collections import Counter
 from typing import Dict, Any
@@ -147,7 +146,7 @@ class FeaturesExtractor(BaseMethod):
         height, width, _ = image.shape
 
         services = map_image_pixels(image)
-        faileds, results = wait_futures(self._extract, 
+        _, results = wait_futures(self._extract, 
                                         services, 
                                         height, 
                                         width,
