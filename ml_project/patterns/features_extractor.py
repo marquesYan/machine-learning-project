@@ -78,10 +78,23 @@ class CsvFormat(Formatter):
             csv_writter.writerows(rows)
 
 
+class NullFormatter(Formatter):
+    @property
+    def extension(self):
+        pass
+
+    def _add_header(self, **kwargs):
+        pass
+
+    def append(self, lines: list):
+        pass
+
+
 class FeaturesExtractor(BaseMethod):
     available_formatters = {
         'arff': ArffFormat,
-        'csv': CsvFormat
+        'csv': CsvFormat,
+        'null': NullFormatter
     }
 
     def __init__(self, *args, **kwargs):
@@ -148,15 +161,17 @@ class FeaturesExtractor(BaseMethod):
         features_counter = Counter()
 
         for feature in self.feature_layouts:
-            if self.is_in_color(*pixel, feature['ranges']):
+            if self.is_in_region(*region_args, feature.get('regions', {})) and \
+                    self.is_in_color(*pixel, feature['ranges']):
                 features_counter.update({feature['name']: 1})
         return features_counter
 
     def is_in_color(self, red, green, blue, ranges: Dict[str, Dict[str, int]]):
+        is_in = lambda needle, initial, end: needle >= initial and needle <= end
         available_ranges = {
-            'red': lambda *args: red in range(*args),
-            'blue': lambda *args: blue in range(*args),
-            'green': lambda *args: green in range(*args),
+            'red': lambda *args: is_in(red, *args),
+            'blue': lambda *args: is_in(blue, *args),
+            'green': lambda *args: is_in(green, *args),
         }
 
         for range_name, ranges in ranges.items():

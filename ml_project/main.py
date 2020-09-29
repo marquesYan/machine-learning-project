@@ -4,6 +4,7 @@
 
 '''
 
+from utils import parse_config, setup_logging
 from parallel import background_run, wait_futures
 import patterns
 import cv2
@@ -31,22 +32,6 @@ def parse_args() -> Namespace:
                         action='store_true', default=False)
 
     return parser.parse_args()
-
-
-def parse_config(path: str):
-    ''' Low-level configuration parsing from a file path '''
-
-    with open(path, 'rb') as reader:
-        data = json.load(reader)
-    
-    assert 'method' in data, 'Missing "method" in configuration'
-    assert 'datasets' in data, 'Missing "datasets" in configuration'
-    assert isinstance(data['datasets'], list), 'Invalid type for "datasets" in configuration'
-    for index, dataset in enumerate(data['datasets']):
-        assert 'class' in dataset, f'Missing "class" in dataset number #{index}'
-        assert 'path' in dataset, f'Missing "path" in dataset number #{index}'
-    
-    return data
 
 
 def with_image(path: str, dataset: dict, callback: Callable[[object, dict, str], Any]) -> None:
@@ -93,20 +78,6 @@ def service_runner(worker: callable,
     save_pattern_method(dataset, method, results, current_loop)
 
     return (paths_count, failed_items)
-
-
-def setup_logging(verbose: bool) -> None:
-    ''' Basic configuration of logging facility '''
-
-    log_format = ['%(asctime)s', '-', '[%(levelname)s]', '%(message)s']
-    if verbose:
-        log_format.insert(1, '%(funcName)s')
-        level = logging.DEBUG
-    else:
-        level = logging.INFO
-
-    logging.basicConfig(format=' '.join(log_format), level=level)
-    logging.getLogger(__file__)
 
 
 def get_pattern_method_objs() -> dict:
