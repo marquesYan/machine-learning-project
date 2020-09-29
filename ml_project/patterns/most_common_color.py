@@ -7,8 +7,8 @@ from multiprocessing import Manager
 
 
 class MostCommonColor(BaseMethod):
-
-    def help(self):
+    @property
+    def description(self):
         return 'Collects the top colors in all images.'
 
     def run(self, image: str, dataset: dict, path: str) -> None:

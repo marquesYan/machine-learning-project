@@ -123,7 +123,8 @@ class FeaturesExtractor(BaseMethod):
         self.formatters = [klass(self.path, columns, **self.config['feature']) 
                            for klass in format_classes]
 
-    def help(self) -> str:            
+    @property
+    def description(self) -> str:            
         return 'Extracts pre-defined image features.'
 
     def run(self, image: str, dataset: dict, path: str) -> None:

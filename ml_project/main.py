@@ -84,7 +84,7 @@ def get_pattern_method_objs() -> dict:
     objs = {}
     for klass in patterns.load_method_classes():
         obj = klass()
-        objs[obj.name()] = obj
+        objs[obj.name] = obj
     return objs 
 
 
@@ -109,7 +109,7 @@ def create_service(dataset: dict, *args) -> list:
 
 def display_available_methods() -> None:
     for objs in get_pattern_method_objs().values():
-        print(f'{objs.name()}\t\t - {objs.help()}')
+        print(f'{objs.name}\t\t - {objs.description}')
 
 
 def get_pattern_output_name(dataset: dict, preffix: Any):

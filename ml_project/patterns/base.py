@@ -11,9 +11,18 @@ class BaseMethod(abc.ABC):
 
     def init(self, datasets: list) -> None:
         pass
-
+    
+    @property
     def name(self) -> str:
         return self.__class__.__name__
+
+    @property
+    def options(self) -> dict:
+        return {}
+
+    @abc.abstractproperty
+    def description(self) -> str:
+        pass
 
     @abc.abstractmethod
     def run(self, image: object, dataset: dict, path: str) -> None:
@@ -34,7 +43,3 @@ class BaseMethod(abc.ABC):
 
         with open(path, 'w') as writer:
             json.dump(content, writer, indent=4)
-
-    @abc.abstractmethod
-    def help(self) -> str:
-        pass

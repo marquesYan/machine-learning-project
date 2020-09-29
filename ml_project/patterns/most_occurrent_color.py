@@ -10,8 +10,8 @@ import logging
 
 
 class MostOccurentColor(BaseMethod):
-
-    def help(self) -> str:
+    @property
+    def description(self) -> str:
         return 'Collects the colors which has the most frequency.'
         
     def run(self, image: object, dataset: dict, path: str) -> Set:
