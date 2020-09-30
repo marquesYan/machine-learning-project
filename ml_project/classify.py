@@ -11,6 +11,7 @@ from utils import (
 )
 from patterns.features_extractor import FeaturesExtractor
 from sklearn.naive_bayes import GaussianNB
+from sklearn.tree import DecisionTreeClassifier
 from sklearn.metrics import confusion_matrix
 import cv2
 import pandas
@@ -25,7 +26,8 @@ def parse_args():
     parser.add_argument('-c', 
                         '--config', 
                         help='Configuration file', 
-                        default='ml.json')
+                        default='ml.json',
+                        required=True)
     parser.add_argument('-v', 
                         '--verbose', 
                         help='Be louder', 
@@ -48,11 +50,24 @@ def parse_args():
     return parser.parse_args()
 
 
-def train(train_dataset: str, print_confusion_matrix: bool = False) -> GaussianNB:
+def load_classifiers() -> dict:
+    return {
+        'gnb': GaussianNB,
+        'dtc': DecisionTreeClassifier,
+    }
+
+
+def get_classifier(config: dict) -> object:
+    return load_classifiers()[config['classifier']]
+
+
+def train(classifier: object, 
+          train_dataset: str, 
+          print_confusion_matrix: bool = False) -> GaussianNB:
     X, y = load_simpsons_dataset(train_dataset)
 
     logging.info('starting training...')
-    gnb = GaussianNB().fit(X, y)
+    gnb = classifier().fit(X, y)
 
     if print_confusion_matrix:
         labels = gnb.classes_
@@ -79,7 +94,7 @@ def load_simpsons_dataset(target_file: str) -> None:
 
 
 def predict_character(config: dict, 
-                      gnb: GaussianNB, 
+                      trained_classfier: object, 
                       image_path: str,
                       **executor_kwargs) -> None:
     logging.info('starting feature extraction...')
@@ -103,20 +118,23 @@ def predict_character(config: dict,
                    for feat, number in features.items()],)
 
     X = [list(features.values())] 
-    prediction = gnb.predict_proba(X)
-    matrix = [[gnb.classes_[index], format(proba * 100, '.2f') + '%'] 
+    prediction = trained_classfier.predict_proba(X)
+    matrix = [[trained_classfier.classes_[index], format(proba * 100, '.2f') + '%'] 
               for index, proba in enumerate(prediction[0])]
     display_table('Prediction Probabilities', ['Label', 'Probability'], matrix)
 
 
 def run(args: argparse.Namespace):
-    dataset_path = args.target_dataset.name 
-    gnb = train(dataset_path,
+    dataset_path = args.target_dataset.name
+    config = parse_config(args.config)
+
+    classifier = get_classifier(config)
+    gnb = train(classifier, 
+                dataset_path,
                 print_confusion_matrix=args.confusion_matrix)
 
     if args.predict:
         image_path = args.predict.name
-        config = parse_config(args.config)
         predict_character(config, 
                           gnb, 
                           image_path, 
@@ -130,7 +148,6 @@ def main():
     start = datetime.now()
     run(args)
     logging.info('time spent: %s', datetime.now() - start)
-    
 
 
 if __name__ == '__main__':
