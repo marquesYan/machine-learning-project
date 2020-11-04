@@ -1,0 +1,36 @@
+{
+    "method": "AudioExtractor",
+    "method_options": {
+        "feature": {
+            "output": "extraction",
+            "relation_name": "feature-cats-ans-dogs",
+            "format": "all"
+        }
+    },
+    "classifier": "mlp",
+    "worker": "raw",
+    "classifier_kwargs": {
+        "max_iter": 850,
+        "learning_rate_init": 0.0007,
+        "activation": "tanh"
+    },
+    "ignore_split": true,
+    "datasets": [
+        {
+            "class": "dog",
+            "path": "dataset/cats_and_dogs/cats_dogs/train/dog",
+            "step": 20,
+            "executor_kwargs": {
+                "max_workers": 300
+            }
+        },
+        {
+            "class": "cat",
+            "path": "dataset/cats_and_dogs/cats_dogs/train/cat",
+            "step": 30,
+            "executor_kwargs": {
+                "max_workers": 500
+            }
+        }
+    ]
+}

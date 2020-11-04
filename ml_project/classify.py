@@ -7,11 +7,13 @@ Apply supervisioned ML classification algorithms.
 from utils import (
     parse_config, 
     setup_logging,
-    display_table
+    display_table,
+    retrieve_pattern_method
 )
 from patterns.features_extractor import FeaturesExtractor
 from sklearn.naive_bayes import GaussianNB
 from sklearn.tree import DecisionTreeClassifier
+from sklearn.neural_network import MLPClassifier
 from sklearn.metrics import confusion_matrix
 import cv2
 import pandas
@@ -54,6 +56,7 @@ def load_classifiers() -> dict:
     return {
         'gnb': GaussianNB,
         'dtc': DecisionTreeClassifier,
+        'mlp': MLPClassifier,
     }
 
 
@@ -63,11 +66,12 @@ def get_classifier(config: dict) -> object:
 
 def train(classifier: object, 
           train_dataset: str, 
-          print_confusion_matrix: bool = False) -> GaussianNB:
+          print_confusion_matrix: bool = False,
+          **kwargs) -> GaussianNB:
     X, y = load_simpsons_dataset(train_dataset)
 
     logging.info('starting training...')
-    gnb = classifier().fit(X, y)
+    gnb = classifier(**kwargs).fit(X, y)
 
     if print_confusion_matrix:
         labels = gnb.classes_
@@ -103,13 +107,18 @@ def predict_character(config: dict,
     # avoid writing changes to disk
     extract_cfg['feature']['format'] = 'null' 
 
-    extractor = FeaturesExtractor(config=extract_cfg)
+    method_factory = retrieve_pattern_method(config['method'])
+    extractor = method_factory(config=extract_cfg)
     extractor.init(config['datasets'])
 
     logging.debug('started extraction')
     dataset = {'feature': {'executor_kwargs': executor_kwargs}}
 
-    features = extractor.run(cv2.imread(image_path), dataset, None)
+    if config.get('worker') == 'raw':
+        features = extractor.run(dataset, image_path)
+    else:
+        features = extractor.run(cv2.imread(image_path), dataset, None)
+
     logging.debug('parsing extraction data...')
     
     display_table('Image Extracted Features', 
@@ -117,7 +126,7 @@ def predict_character(config: dict,
                   [[feat, format(number, '.2f')]
                    for feat, number in features.items()],)
 
-    X = [list(features.values())] 
+    X = [list(features.values())]
     prediction = trained_classfier.predict_proba(X)
     matrix = [[trained_classfier.classes_[index], format(proba * 100, '.2f') + '%'] 
               for index, proba in enumerate(prediction[0])]
@@ -131,7 +140,8 @@ def run(args: argparse.Namespace):
     classifier = get_classifier(config)
     gnb = train(classifier, 
                 dataset_path,
-                print_confusion_matrix=args.confusion_matrix)
+                print_confusion_matrix=args.confusion_matrix,
+                **config['classifier_kwargs'])
 
     if args.predict:
         image_path = args.predict.name

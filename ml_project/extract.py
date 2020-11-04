@@ -48,6 +48,10 @@ def with_image(path: str, dataset: dict, callback: Callable[[object, dict, str],
     return callback(image, dataset, path)
 
 
+def raw_handler(path: str, dataset: dict, callback: Callable[[dict, str], Any]):
+    return callback(dataset, path)
+
+
 def scan_directory(path: str) -> List[str]:
     ''' Get all file paths inside the given directory '''
 
@@ -86,10 +90,15 @@ def service_runner(worker: callable,
     return (paths_count, failed_items)
 
 
-def create_service(dataset: dict, *args, **kwargs) -> list:
+def create_service(config: dict, dataset: dict, *args, **kwargs) -> list:
     ''' Create valid service configuration for running in the background '''
 
-    args = (with_image, dataset, dataset['class'], *args)
+    if config.get('worker') == 'raw':
+        worker = raw_handler
+    else:
+        worker = with_image
+
+    args = (worker, dataset, dataset['class'], *args)
     kwargs.update(**dataset.get('executor_kwargs', {}))
     return ((args), kwargs)
 
@@ -141,7 +150,8 @@ def run(config: dict) -> None:
                 logging.info('remaining paths for [%s]: %d', 
                              dataset['class'], 
                              len(dataset_paths[dataset['class']]))
-                service = create_service(dataset, 
+                service = create_service(config, 
+                                         dataset, 
                                          method,
                                          paths, 
                                          global_index,

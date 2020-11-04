@@ -1,6 +1,7 @@
 from .most_common_color import MostCommonColor
 from .most_occurrent_color import MostOccurentColor
 from .features_extractor import FeaturesExtractor
+from .audio_extractor import AudioExtractor
 
 
 def load_method_classes():
@@ -9,5 +10,6 @@ def load_method_classes():
     return [
         MostCommonColor,
         MostOccurentColor,
-        FeaturesExtractor
+        FeaturesExtractor,
+        AudioExtractor,
     ]
